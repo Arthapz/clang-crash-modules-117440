@@ -1,0 +1,81 @@
+module;
+
+#include <dlfcn.h>
+#include <errno.h>
+
+export module DynamicLoader:Posix;
+
+import std;
+
+import :Base;
+
+export namespace stormkit { inline namespace core {
+    class DynamicLoader::DynamicLoaderImpl {
+      public:
+        template<class T>
+        using Expected = std::expected<T, std::error_code>;
+
+        /////////////////////////////////////
+        /////////////////////////////////////
+        inline constexpr DynamicLoaderImpl() noexcept = default;
+
+        /////////////////////////////////////
+        /////////////////////////////////////
+        inline ~DynamicLoaderImpl() noexcept {
+            if (m_library_handle) [[likely]]
+                m_library_handle = nullptr;
+        }
+
+        /////////////////////////////////////
+        /////////////////////////////////////
+        DynamicLoaderImpl(const DynamicLoaderImpl&) = delete;
+
+        /////////////////////////////////////
+        /////////////////////////////////////
+        auto operator=(const DynamicLoaderImpl&) -> DynamicLoaderImpl& = delete;
+
+        /////////////////////////////////////
+        /////////////////////////////////////
+        inline DynamicLoaderImpl(DynamicLoaderImpl&& other) noexcept
+            : m_library_handle { std::exchange(other.m_library_handle, nullptr) } {}
+
+        /////////////////////////////////////
+        /////////////////////////////////////
+        inline auto operator=(DynamicLoaderImpl&& other) noexcept
+            -> DynamicLoaderImpl& {
+            if (&other == this) [[unlikely]]
+                return *this;
+
+            m_library_handle = std::exchange(other.m_library_handle, nullptr);
+
+            return *this;
+        }
+
+        /////////////////////////////////////
+        /////////////////////////////////////
+        inline auto doLoad(const std::filesystem::path& filepath) -> Expected<void> {
+            m_library_handle = ::dlopen(filepath.c_str(), RTLD_LAZY | RTLD_LOCAL);
+
+            if (not m_library_handle) [[unlikely]]
+                return std::unexpected(
+                    std::error_code { static_cast<int>(errno), std::system_category() });
+
+            return {};
+        }
+
+        /////////////////////////////////////
+        /////////////////////////////////////
+        inline auto doGetFunc(std::string_view name) const -> Expected<void*> {
+            auto func = ::dlsym(m_library_handle, std::data(name));
+
+            if (not func) [[unlikely]]
+                return std::unexpected(
+                    std::error_code { static_cast<int>(errno), std::system_category() });
+
+            return { func };
+        }
+
+      private:
+        void* m_library_handle = nullptr;
+    };
+}}

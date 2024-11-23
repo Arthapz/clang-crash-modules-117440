@@ -1,0 +1,135 @@
+export module Pimpl;
+
+import std;
+
+template<typename T, typename ... Args>
+concept EnableCtor = sizeof...(Args) != 1 || (sizeof...(Args) == 1 && !std::is_same_v<T, typename std::remove_cvref<Args...>::type>);
+
+export namespace stormkit { inline namespace core {
+    template<class T, bool Defer = false>
+    class Pimpl {
+      public:
+        Pimpl() noexcept(not Defer);
+        ~Pimpl();
+
+        template<class... Args>
+            requires (EnableCtor<Pimpl<T, Defer>, Args...>)
+        // comment this to remove crash
+        explicit(sizeof...(Args) == 0) 
+        Pimpl(Args&&... args);
+        
+        Pimpl(Pimpl&&) noexcept;
+        auto operator=(Pimpl&&) noexcept -> Pimpl&;
+
+        template<class... Args>
+        auto init(Args&&... args) -> void;
+
+        auto operator->() noexcept -> T*;
+        auto operator->() const noexcept -> const T*;
+
+        auto operator*() noexcept -> T&;
+        auto operator*() const noexcept -> const T&;
+
+        auto get() noexcept -> T&;
+        auto get() const noexcept -> const T&;
+
+        explicit operator bool() const noexcept;
+
+      private:
+        std::unique_ptr<T> m_data;
+    };
+}} // namespace stormkit::core
+
+////////////////////////////////////////////////////////////////////
+///                      IMPLEMENTATION                          ///
+////////////////////////////////////////////////////////////////////
+
+namespace stormkit { inline namespace core {
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline Pimpl<T, Defer>::Pimpl() noexcept(not Defer) {
+        if constexpr (not Defer) init();
+    }
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline Pimpl<T, Defer>::~Pimpl() = default;
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    template<class... Args>
+        requires (EnableCtor<Pimpl<T, Defer>, Args...>)
+    inline Pimpl<T, Defer>::Pimpl(Args&&... args) {
+        init(std::forward<Args>(args)...);
+    }
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline Pimpl<T, Defer>::Pimpl(Pimpl&&) noexcept = default;
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline auto Pimpl<T, Defer>::operator=(Pimpl&&) noexcept -> Pimpl& = default;
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    template<class... Args>
+    inline auto Pimpl<T, Defer>::init(Args&&... args) -> void {
+        m_data = std::make_unique<T>(std::forward<Args>(args)...);
+    }
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline auto Pimpl<T, Defer>::operator->() noexcept -> T* {
+        return &get();
+    }
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline auto Pimpl<T, Defer>::operator->() const noexcept -> const T* {
+        return &get();
+    }
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline auto Pimpl<T, Defer>::operator*() noexcept -> T& {
+        return get();
+    }
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline auto Pimpl<T, Defer>::operator*() const noexcept -> const T& {
+        return get();
+    }
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline auto Pimpl<T, Defer>::get() noexcept -> T& {
+        return *m_data;
+    }
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline auto Pimpl<T, Defer>::get() const noexcept -> const T& {
+        return *m_data;
+    }
+
+    /////////////////////////////////////
+    /////////////////////////////////////
+    template<class T, bool Defer>
+    inline Pimpl<T, Defer>::operator bool() const noexcept {
+        return m_data != nullptr;
+    }
+}} // namespace stormkit::core

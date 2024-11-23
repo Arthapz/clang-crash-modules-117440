@@ -1,0 +1,6 @@
+target("foo", function()
+    set_kind("binary")
+    set_languages("c++26")
+    add_files("src/**.cpp", "src/**.mpp")
+    set_policy("build.c++.modules", true)
+end)
